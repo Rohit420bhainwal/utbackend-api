@@ -14,6 +14,10 @@ const userSchema = new mongoose.Schema({
     enum: ["customer", "vendor", "admin"],
     default: "customer"
   },
+  fcmToken: {
+    type: String,
+    default: null,
+  },
   isActive: { type: Boolean, default: true }
 }, { timestamps: true });
 

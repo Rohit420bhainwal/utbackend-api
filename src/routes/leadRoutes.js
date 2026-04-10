@@ -9,10 +9,14 @@ router.post("/", auth(["customer"]), leadCtrl.createLead);
 router.get("/my", auth(["customer"]), leadCtrl.getMyLeads);
 router.get("/:id", auth(["customer"]), leadCtrl.getMyLeadDetails);
 
+//router.get("/admin", auth(["admin"]), leadCtrl.getAllLeadsAdminn);
+
 // Vendor sees his leads
 router.get("/vendor",auth(["vendor"]),leadCtrl.getVendorLeads);
 
-router.get("/admin", auth(["admin"]), leadCtrl.getAllLeadsAdmin);
+
+
+router.get("/admin/all-leads", auth(["admin"]), leadCtrl.getAllLeadsAdmin);
 
 router.get("/admin/:id", auth(["admin"]), leadCtrl.getLeadDetailsAdmin);
 

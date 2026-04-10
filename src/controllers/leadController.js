@@ -1,6 +1,9 @@
 const Lead = require("../models/Lead");
 const Service = require("../models/Service");
 const Vendor = require("../models/Vendor");
+const admin = require("../config/firebase"); // 🔥 ADD THIS
+const User = require("../models/User");
+
 
 exports.createLead = async (req, res) => {
   try {
@@ -13,8 +16,8 @@ exports.createLead = async (req, res) => {
       city,
       message,
     } = req.body;
-    
 
+    // 🔹 Get service
     const service = await Service.findById(serviceId)
       .populate("vendorId")
       .populate("categoryId");
@@ -23,23 +26,25 @@ exports.createLead = async (req, res) => {
       return res.status(404).json({ message: "Service not found" });
     }
 
+    const user = await User.findById(req.user.id);
+    // 🔹 Create lead
     const lead = await Lead.create({
       customer: {
-        userId: req.user.id,   // ✅ FIXED
-        name: req.user.name,
-        email: req.user.email,
-        phone: req.user.phone,
+        userId: user._id,
+        name:  user.name,
+        email: user.email,
+        phone: user.phone,
       },
-    
+
       vendorId: service.vendorId._id,
-    
+
       service: {
         serviceId: service._id,
         title: service.title,
         categoryName: service.categoryId?.name,
         city: service.vendorId?.city,
       },
-    
+
       eventDetails: {
         eventType,
         eventDate,
@@ -47,16 +52,52 @@ exports.createLead = async (req, res) => {
         budget,
         city,
       },
-    
+
       message,
     });
 
+    // ===============================
+    // 🔥 SEND NOTIFICATION TO ADMINS
+    // ===============================
+
+    try {
+      const admins = await User.find({
+        role: "admin",
+        fcmToken: { $ne: null },
+      });
+
+      const tokens = admins.map((a) => a.fcmToken);
+
+      if (tokens.length > 0) {
+        await admin.messaging().sendEachForMulticast({
+          tokens,
+          notification: {
+            title: "New Lead 🚀",
+            body: `${user?.name || "Customer"} created a new inquiry`,
+          },
+          data: {
+            type: "NEW_LEAD",
+            leadId: lead._id.toString(),
+          },
+        });
+
+        console.log("✅ Notification sent to admins");
+      } else {
+        console.log("⚠️ No admin tokens found");
+      }
+    } catch (notifyError) {
+      console.error("❌ Notification error:", notifyError);
+    }
+
+    // 🔹 Response
     res.status(201).json({
       success: true,
       message: "Inquiry submitted successfully",
       data: lead,
     });
+
   } catch (error) {
+    console.error("Create lead error:", error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -65,64 +106,118 @@ exports.createLead = async (req, res) => {
 exports.getMyLeads = async (req, res) => {
   try {
     const leads = await Lead.find({
-      "customer.userId": req.user.id,   // since your JWT has id
-    }).sort({ createdAt: -1 });
+      "customer.userId": req.user.id,
+    })
+      .populate("customer.userId", "name email phone") // 🔥 ADD THIS
+      .sort({ createdAt: -1 });
 
     res.json({
-      success: true, data: leads});
+      success: true,
+      data: leads,
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-exports.getVendorLeads = async (req, res) => {
-    try {
-      const vendor = await Vendor.findOne({ userId: req.user._id });
-  
-      if (!vendor) {
-        return res.status(404).json({ message: "Vendor not found" });
-      }
-  
-      const leads = await Lead.find({ vendorId: vendor._id })
-        .sort({ createdAt: -1 });
-  
-      res.json(leads);
-    } catch (error) {
-      res.status(500).json({ message: error.message });
-    }
-  };
+// exports.getMyLeads = async (req, res) => {
+//   try {
+//     const leads = await Lead.find({
+//       "customer.userId": req.user.id,   // since your JWT has id
+//     }).sort({ createdAt: -1 });
 
-  exports.getAllLeadsAdmin = async (req, res) => {
-    try {
-      const { page = 1, limit = 10, status } = req.query;
-  
-      const query = {};
-  
-      // Optional status filter
-      if (status) {
-        query.status = status;
-      }
-  
-      const leads = await Lead.find(query)
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(parseInt(limit))
-        .populate("vendorId", "businessName city")
-        .populate("customer.userId", "name email phone");
-  
-      const total = await Lead.countDocuments(query);
-  
-      res.json({
-        success: true,
-        total,
-        page: Number(page),
-        totalPages: Math.ceil(total / limit),
-        data: leads,
-      });
-    } catch (error) {
-      res.status(500).json({ message: error.message });
+//     res.json({
+//       success: true, data: leads});
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+exports.getVendorLeads = async (req, res) => {
+  try {
+    console.log("REQ USER:", req.user); // 🔥 debug
+
+    const vendor = await Vendor.findOne({ userId: req.user.id });
+
+    if (!vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
     }
-  };
+
+    const leads = await Lead.find({ vendorId: vendor._id })
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: leads,
+    });
+  } catch (error) {
+    console.error("Vendor Leads Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+exports.getAllLeadsAdmin = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, status } = req.query;
+
+    const query = {};
+    if (status) query.status = status;
+
+    const leads = await Lead.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit))
+      .populate("vendorId", "businessName city")
+      .populate("customer.userId", "name email phone");
+
+    const total = await Lead.countDocuments(query);
+
+    res.json({
+      success: true,
+      total,
+      page: Number(page),
+      totalPages: Math.ceil(total / limit),
+      data: leads,
+    });
+  } catch (error) {
+    console.error("Admin fetch leads error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+
+  // exports.getAllLeadsAdminn = async (req, res) => {
+  //   try {
+  //     const { page = 1, limit = 10, status } = req.query;
+  
+  //     const query = {};
+  
+  //     // Optional status filter
+  //     if (status) {
+  //       query.status = status;
+  //     }
+  
+  //     const leads = await Lead.find(query)
+  //       .sort({ createdAt: -1 })
+  //       .skip((page - 1) * limit)
+  //       .limit(parseInt(limit))
+  //       .populate("vendorId", "businessName city")
+  //       .populate("customer.userId", "name email phone");
+  
+  //     const total = await Lead.countDocuments(query);
+  
+  //     res.json({
+  //       success: true,
+  //       total,
+  //       page: Number(page),
+  //       totalPages: Math.ceil(total / limit),
+  //       data: leads,
+  //     });
+  //   } catch (error) {
+  //     res.status(500).json({ message: error.message });
+  //   }
+  // };
 
   exports.getLeadDetailsAdmin = async (req, res) => {
     try {

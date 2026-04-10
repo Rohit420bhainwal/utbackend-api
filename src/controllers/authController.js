@@ -116,3 +116,20 @@ exports.login = async (req, res) => {
     });
   }
 };
+
+
+exports.updateFcmToken = async (req, res) => {
+  try {
+    const { userId, fcmToken } = req.body;
+
+    await User.findByIdAndUpdate(userId, {
+      fcmToken,
+    });
+
+    res.json({ success: true, message: "Token updated" });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
