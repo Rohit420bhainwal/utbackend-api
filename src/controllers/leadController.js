@@ -240,6 +240,7 @@ exports.getAllLeadsAdmin = async (req, res) => {
     }
   };
 
+
   exports.updateLeadStatus = async (req, res) => {
     try {
       const { id } = req.params;
@@ -259,10 +260,71 @@ exports.getAllLeadsAdmin = async (req, res) => {
         { new: true }
       )
         .populate("vendorId", "businessName city")
-        .populate("customer.userId", "name email phone");
+        .populate("customer.userId", "name email phone fcmToken");
   
       if (!lead) {
         return res.status(404).json({ message: "Lead not found" });
+      }
+  
+      // ===============================
+      // 🔥 SEND DATA-ONLY NOTIFICATION
+      // ===============================
+      try {
+        const customer = lead.customer?.userId;
+  
+        console.log(`🔔 FCM Token: ${customer?.fcmToken || "EMPTY"}`);
+  
+        if (customer?.fcmToken) {
+          let statusMessage = "";
+  
+          switch (status) {
+            case "new":
+              statusMessage =
+                "Thanks for reaching out to Utsav! Our team is reviewing your requirement.";
+              break;
+  
+            case "contacted":
+              statusMessage =
+                "Team Utsav has contacted you to understand your requirements better.";
+              break;
+  
+            case "converted":
+              statusMessage =
+                "We’ve found a perfect vendor match for your event! Our team will assist you further.";
+              break;
+  
+            case "closed":
+              statusMessage =
+                "This request has been closed. You can always create a new request anytime.";
+              break;
+  
+            default:
+              statusMessage = "Your request status has been updated.";
+          }
+  
+          await admin.messaging().send({
+            token: customer.fcmToken,
+  
+            // ✅ DATA ONLY (NO notification block)
+            data: {
+              title: "Inquiry Update 🔔",
+              body: `Hi ${customer.name}, ${statusMessage}`,
+              type: "LEAD_STATUS_UPDATE",
+              leadId: lead._id.toString(),
+              status: status,
+            },
+  
+            android: {
+              priority: "high",
+            },
+          });
+  
+          console.log("✅ Data notification sent to customer");
+        } else {
+          console.log("⚠️ Customer FCM token not found");
+        }
+      } catch (notifyError) {
+        console.error("❌ Notification error:", notifyError);
       }
   
       res.json({
@@ -274,6 +336,42 @@ exports.getAllLeadsAdmin = async (req, res) => {
       res.status(500).json({ message: error.message });
     }
   };
+
+
+  // exports.updateLeadStatus = async (req, res) => {
+  //   try {
+  //     const { id } = req.params;
+  //     const { status } = req.body;
+  
+  //     const allowedStatus = ["new", "contacted", "converted", "closed"];
+  
+  //     if (!allowedStatus.includes(status)) {
+  //       return res.status(400).json({
+  //         message: "Invalid status",
+  //       });
+  //     }
+  
+  //     const lead = await Lead.findByIdAndUpdate(
+  //       id,
+  //       { status },
+  //       { new: true }
+  //     )
+  //       .populate("vendorId", "businessName city")
+  //       .populate("customer.userId", "name email phone");
+  
+  //     if (!lead) {
+  //       return res.status(404).json({ message: "Lead not found" });
+  //     }
+  
+  //     res.json({
+  //       success: true,
+  //       message: "Lead status updated",
+  //       data: lead,
+  //     });
+  //   } catch (error) {
+  //     res.status(500).json({ message: error.message });
+  //   }
+  // };
 
   exports.addNote = async (req, res) => {
     try {
