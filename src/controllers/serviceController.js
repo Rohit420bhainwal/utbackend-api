@@ -160,6 +160,7 @@ exports.getServiceById = async (req, res) => {
       .populate("categoryId");
 
     if (!service) {
+      console.log(service);
       return res.status(404).json({
         success: false,
         message: "Service not found",

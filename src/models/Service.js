@@ -36,6 +36,15 @@ const serviceSchema = new mongoose.Schema(
     thumbnail: {
       type: String,
     },
+
+    avgRating: {
+      type: Number,
+      default: 0,
+    },
+    totalReviews: {
+      type: Number,
+      default: 0,
+    },
     
    // images: [String],
     isActive: { type: Boolean, default: true },

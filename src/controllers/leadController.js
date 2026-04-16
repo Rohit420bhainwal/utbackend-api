@@ -107,9 +107,18 @@ exports.getMyLeads = async (req, res) => {
   try {
     const leads = await Lead.find({
       "customer.userId": req.user.id,
+    }).populate({
+      path: "vendorId",
+      select: "businessName city rating totalReviews userId",
+      populate: {
+        path: "userId",
+        select: "name phone email",
+      },
     })
-      .populate("customer.userId", "name email phone") // 🔥 ADD THIS
-      .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 });
+    
+      // .populate("customer.userId", "name email phone") // 🔥 ADD THIS
+      // .sort({ createdAt: -1 });
 
     res.json({
       success: true,

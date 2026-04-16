@@ -32,7 +32,7 @@ app.use("/api/v1/categories", require("./routes/categoryRoutes"));
 app.use("/api/v1/vendors", require("./routes/vendorRoutes"));
 
 app.use("/api/v1/services", require("./routes/serviceRoutes"));
-
+app.use("/api/v1/reviews", require("./routes/reviewRoutes"));
 app.use("/api/v1/users", require("./routes/userRoutes"));
 
 app.use("/api/v1/dashboard", require("./routes/dashboardRoutes"));
