@@ -17,6 +17,8 @@ app.use(morgan("dev"));
 
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
+app.use(express.static(path.join(__dirname, "../public")));
+
 
 // ✅ Routes
 app.use("/api/v1/auth", require("./routes/authRoutes"));
