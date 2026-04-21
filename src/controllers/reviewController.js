@@ -1,7 +1,7 @@
 
 const Lead = require("../models/Lead");
 const Service = require("../models/Service");
-const Review = require("../models/review");
+const Review = require("../models/Review");
 
 /// ✅ ADD REVIEW
 exports.addReview = async (req, res) => {
