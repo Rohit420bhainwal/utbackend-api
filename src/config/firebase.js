@@ -1,12 +1,22 @@
+// const admin = require("firebase-admin");
+// const serviceAccount = require("./firebase-admin.json"); // same folder
+
+// if (!admin.apps.length) {
+//   admin.initializeApp({
+//     credential: admin.credential.cert(serviceAccount),
+//   });
+
+//   console.log("✅ Firebase initialized");
+// }
+
+// module.exports = admin;
+
 const admin = require("firebase-admin");
-const serviceAccount = require("./firebase-admin.json"); // same folder
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-  });
+const serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG);
 
-  console.log("✅ Firebase initialized");
-}
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 
 module.exports = admin;
