@@ -5,6 +5,14 @@ const userSchema = new mongoose.Schema({
   email: { type: String, unique: true },
   phone: String,
   password: String,
+
+  otp: String,
+  otpExpires: Date,
+  isVerified: {
+  type: Boolean,
+  default: false
+},
+
   avatar: {
     type: String, // will store file path like: uploads/users/xxx.jpg
     default: "",
