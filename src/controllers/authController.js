@@ -259,3 +259,58 @@ exports.verifyOtp = async (req, res) => {
     });
   }
 };
+
+exports.createVendorByAdmin = async (req, res) => {
+  try {
+    const { name, email, password, role, phone } = req.body;
+
+    /// CHECK EXISTING USER
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: "User already exists",
+      });
+    }
+
+    /// HASH PASSWORD
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    /// CREATE USER WITHOUT OTP
+    const user = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      role: role || "vendor",
+      phone,
+
+      /// ✅ DIRECT VERIFY
+      isVerified: true,
+
+      /// OPTIONAL
+      otp: null,
+      otpExpires: null,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Vendor user created successfully",
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: user.phone,
+      },
+    });
+
+  } catch (error) {
+    console.error("Admin vendor create error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
