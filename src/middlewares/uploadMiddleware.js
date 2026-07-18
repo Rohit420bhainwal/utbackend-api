@@ -2,6 +2,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
+/*
 // 🔥 DYNAMIC STORAGE
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -42,5 +43,35 @@ const fileFilter = (req, file, cb) => {
 };
 
 const upload = multer({ storage, fileFilter });
+
+module.exports = upload;
+
+*/
+
+//const multer = require("multer");
+
+
+
+// Store files in memory instead of local disk
+const storage = multer.memoryStorage();
+
+// Only allow images
+const fileFilter = (req, file, cb) => {
+  console.log("MIME:", file.mimetype);
+
+  if (file.mimetype.startsWith("image/")) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only images are allowed"), false);
+  }
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10 MB
+  },
+});
 
 module.exports = upload;

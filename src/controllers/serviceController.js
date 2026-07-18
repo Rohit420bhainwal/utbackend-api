@@ -1,4 +1,5 @@
 const Service = require("../models/Service");
+const { uploadToS3, deleteFromS3 } = require("../services/s3.service");
 
 /*
 // ===============================
@@ -20,6 +21,7 @@ exports.createService = async (req, res) => {
   }
 };*/
 
+/*
 exports.createService = async (req, res) => {
   try {
     let imagePaths = [];
@@ -42,6 +44,42 @@ exports.createService = async (req, res) => {
       data: service,
     });
   } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+*/
+
+exports.createService = async (req, res) => {
+  try {
+    let imagePaths = [];
+
+    // Upload images to S3
+    if (req.files && req.files.length > 0) {
+      imagePaths = await Promise.all(
+        req.files.map(async (file) => {
+          return await uploadToS3(file, "services");
+        })
+      );
+    }
+
+    const serviceData = {
+      ...req.body,
+      images: imagePaths,
+    };
+
+    const service = await Service.create(serviceData);
+
+    res.status(201).json({
+      success: true,
+      data: service,
+    });
+
+  } catch (err) {
+    console.error("CREATE SERVICE ERROR:", err);
+
     res.status(500).json({
       success: false,
       message: err.message,
@@ -186,6 +224,65 @@ exports.getServiceById = async (req, res) => {
 
 exports.updateService = async (req, res) => {
   try {
+    const service = await Service.findById(req.params.id);
+
+    if (!service) {
+      return res.status(404).json({
+        success: false,
+        message: "Service not found",
+      });
+    }
+
+    // Existing images coming from frontend
+    let imagePaths = [];
+
+    if (req.body.existingImages) {
+      imagePaths = req.body.existingImages
+        .split(",")
+        .map((img) => img.trim())
+        .filter((img) => img !== "");
+    }
+
+    // Upload new images to S3
+    if (req.files && req.files.length > 0) {
+      const uploadedImages = await Promise.all(
+        req.files.map(async (file) => {
+          return await uploadToS3(file, "services");
+        })
+      );
+
+      imagePaths = [...imagePaths, ...uploadedImages];
+    }
+
+    const updatedData = {
+      ...req.body,
+      images: imagePaths,
+    };
+
+    const updatedService = await Service.findByIdAndUpdate(
+      req.params.id,
+      updatedData,
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      data: updatedService,
+    });
+
+  } catch (err) {
+    console.error("UPDATE SERVICE ERROR:", err);
+
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+};
+
+/*
+exports.updateService = async (req, res) => {
+  try {
     let imagePaths = [];
 
     /// 🔥 existing images from frontend
@@ -221,6 +318,8 @@ exports.updateService = async (req, res) => {
     });
   }
 };
+*/
+
 
 // exports.updateService = async (req, res) => {
 //   try {
@@ -253,6 +352,45 @@ exports.updateService = async (req, res) => {
 // ===============================
 // DELETE SERVICE
 // ===============================
+
+exports.deleteService = async (req, res) => {
+  try {
+    const service = await Service.findById(req.params.id);
+
+    if (!service) {
+      return res.status(404).json({
+        success: false,
+        message: "Service not found",
+      });
+    }
+
+    // Delete all images from S3
+    if (service.images && service.images.length > 0) {
+      await Promise.all(
+        service.images.map(async (image) => {
+          await deleteFromS3(image);
+        })
+      );
+    }
+
+    await Service.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: "Service deleted successfully",
+    });
+
+  } catch (error) {
+    console.error("DELETE SERVICE ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+/*
 exports.deleteService = async (req, res) => {
   try {
     const service = await Service.findByIdAndDelete(req.params.id);
@@ -275,3 +413,4 @@ exports.deleteService = async (req, res) => {
     });
   }
 };
+*/
