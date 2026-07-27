@@ -20,12 +20,17 @@ exports.register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    const otp = 1234
+    
     /// ✅ FIX OTP (NUMERIC ONLY)
-    const otp = otpGenerator.generate(6, {
-      upperCaseAlphabets: false,
-      specialChars: false,
-      alphabets: false,
-    });
+    // upgrade the send otp and uncommnet this 
+    // const otp = otpGenerator.generate(6, {
+    //   upperCaseAlphabets: false,
+    //   specialChars: false,
+    //   alphabets: false,
+    // });
+
+
 
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -53,7 +58,8 @@ exports.register = async (req, res) => {
     console.log("✅ OTP GENERATED:", otp);
     console.log("✅ OTP SAVED IN DB:", user.otp);
 
-    await sendOtpEmail(email, otp);
+    // upgrade the send otp and then uncomment this
+    //await sendOtpEmail(email, otp);
 
     res.json({
       success: true,
