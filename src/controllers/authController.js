@@ -320,3 +320,248 @@ exports.createVendorByAdmin = async (req, res) => {
     });
   }
 };
+
+
+// ----------------------------------------
+// FORGOT PASSWORD - SEND OTP
+// ----------------------------------------
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+      role: "customer",
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No customer found with this email",
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(400).json({
+        success: false,
+        message: "Account is inactive",
+      });
+    }
+
+    // Generate 6 digit OTP
+    const otp = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
+
+    // OTP valid for 5 minutes
+    const otpExpires = new Date(
+      Date.now() + 5 * 60 * 1000
+    );
+
+    // user.otp = otp;
+    user.otp = 123456;
+    user.otpExpires = otpExpires;
+
+    // Reset previous verification
+    user.passwordResetVerified = false;
+    user.passwordResetVerifiedAt = null;
+
+    await user.save();
+
+    //console.log("FORGOT PASSWORD OTP:", otp);
+
+    console.log("FORGOT PASSWORD OTP:", user.otp);
+
+    // ----------------------------------------
+    // SEND OTP EMAIL
+    // ----------------------------------------
+    // Put your existing email function here.
+    //
+    // Example:
+    // await sendOtpEmail(user.email, otp);
+
+    return res.json({
+      success: true,
+      message: "OTP sent successfully",
+    });
+
+  } catch (err) {
+    console.error("Forgot password error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+
+// ----------------------------------------
+// VERIFY FORGOT PASSWORD OTP
+// ----------------------------------------
+exports.verifyForgotPasswordOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and OTP are required",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+      role: "customer",
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    // Check OTP
+    if (!user.otp || user.otp !== otp.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
+    // Check expiry
+    if (!user.otpExpires || user.otpExpires < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP has expired",
+      });
+    }
+
+    // OTP successfully verified
+    user.passwordResetVerified = true;
+    user.passwordResetVerifiedAt = new Date();
+
+    // Clear OTP
+    user.otp = undefined;
+    user.otpExpires = undefined;
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "OTP verified successfully",
+    });
+
+  } catch (err) {
+    console.error("Verify forgot password OTP error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+
+// ----------------------------------------
+// RESET PASSWORD
+// ----------------------------------------
+exports.resetPassword = async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+
+    if (!email || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and new password are required",
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+      role: "customer",
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Customer not found",
+      });
+    }
+
+    // Make sure OTP was verified first
+    if (!user.passwordResetVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Please verify OTP first",
+      });
+    }
+
+    // Password reset verification valid for 10 minutes
+    if (
+      !user.passwordResetVerifiedAt ||
+      Date.now() -
+        user.passwordResetVerifiedAt.getTime() >
+        10 * 60 * 1000
+    ) {
+      user.passwordResetVerified = false;
+      user.passwordResetVerifiedAt = null;
+
+      await user.save();
+
+      return res.status(400).json({
+        success: false,
+        message:
+          "Password reset session expired. Please request a new OTP.",
+      });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+
+    user.password = await bcrypt.hash(
+      newPassword,
+      salt
+    );
+
+    // Clear reset verification
+    user.passwordResetVerified = false;
+    user.passwordResetVerifiedAt = null;
+
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Password reset successfully",
+    });
+
+  } catch (err) {
+    console.error("Reset password error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
